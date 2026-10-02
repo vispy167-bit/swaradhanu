@@ -3,14 +3,18 @@ const A4 = 440;
 const CHROMATIC = ["A", "A♯/B♭", "B", "C", "C♯/D♭", "D", "D♯/E♭", "E", "F", "F♯/G♭", "G", "G♯/A♭"];
 const STANDARD_SCALES = { C:-9, 'C#':-8, D:-7, 'D#':-6, E:-5, F:-4, 'F#':-3, G:-2, 'G#':-1, A:0, 'A#':1, B:2 }; // semitones relative to A4 = 440 Hz
 const SWARS = [{n:"Sa",s:0},{n:"Re",s:2},{n:"Ga",s:4},{n:"Ma",s:5},{n:"Pa",s:7},{n:"Dha",s:9},{n:"Ni",s:11},{n:"Sa′",s:12}];
+const DEVANAGARI_SWARS = { Sa:'सा', Re:'रे', Ga:'ग', Ma:'म', Pa:'प', Dha:'ध', Ni:'नि', 'Sa′':'सा′' };
 const $ = id => document.getElementById(id);
 const ui = { key:$('keySelect'), octave:$('octaveSelect'), duration:$('duration'), durationOut:$('durationOut'), start:$('startBtn'), check:$('checkBtn'), swars:$('swarButtons'), active:$('activeSwar'), target:$('targetHz'), verdict:$('verdict'), guessed:$('detectedSwar'), needle:$('tunerNeedle'), bubble:$('tunerBubble'), detected:$('detectedHz'), feedback:$('voiceFeedback'), ratio:$('ratioText'), saptak:$('saptakName'), note:$('noteName'), status:$('audioStatus'), cents:$('centsText'), graph:$('pitchGraph'), progress:$('cycleProgress'), timer:$('cycleTime') };
 let audioCtx, analyser, micStream, micSource, noiseNode, droneNodes = [], cycleTimer, raf, phase = 'idle', swarIndex = 0, history = [], lastAnalysis = 0, practiceOrder = 'aaroha', lastDetected = -1, graphTarget = -1, smoothedNeedle = 0;
+function setMicButton(listening=false){ui.check.innerHTML=listening?'■ Mic':'▶ Mic';ui.check.classList.add('mic-button');ui.check.classList.toggle('running',listening);}
+setMicButton();
 
 const themeBtn = $('themeBtn');
 const installBtn=document.createElement('button');
 installBtn.className='install-button';installBtn.textContent='Install';installBtn.hidden=true;themeBtn.before(installBtn);
 const pwaStyles=document.createElement('link');pwaStyles.rel='stylesheet';pwaStyles.href='pwa.css';document.head.append(pwaStyles);
+const headerStyles=document.createElement('link');headerStyles.rel='stylesheet';headerStyles.href='header-controls.css';document.head.append(headerStyles);
 let deferredInstall;
 window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();deferredInstall=event;installBtn.hidden=false;});
 installBtn.onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;installBtn.hidden=true;};
@@ -67,7 +71,7 @@ function renderSwars() { /* The current swar is advanced automatically by the pr
 function updateTarget() {
   const hz = targetFrequency();
   graphTarget = hz;
-  ui.active.innerHTML = `${SWARS[swarIndex].n} <span>| ${SWARS[swarIndex].n==='Sa′'?'सा′':'सा'}</span>`;
+  ui.active.innerHTML = `${SWARS[swarIndex].n} <span>| ${DEVANAGARI_SWARS[SWARS[swarIndex].n]}</span>`;
   ui.target.textContent = `${hz.toFixed(2)} Hz`;
   ui.ratio.textContent = Math.pow(2, SWARS[swarIndex].s / 12).toFixed(3);
   showSaptak(`${ui.octave.value.toUpperCase()} SAPTAK`);
@@ -113,16 +117,16 @@ function setPhase(next) {
   const begun=performance.now(); clearInterval(cycleTimer); cycleTimer=setInterval(()=>{const left=Math.max(0,secs-(performance.now()-begun)/1000); ui.timer.textContent=`${phase==='drone'?'PLAY':'LISTEN'} ${String(Math.ceil(left)).padStart(2,'0')}s`; ui.progress.style.width=`${(1-left/secs)*100}%`; if(!left){clearInterval(cycleTimer);if(phase==='drone')setPhase('listen');else{advanceSwar();setPhase('drone');}}},100);
 }
 function advanceSwar(){swarIndex=practiceOrder==='aaroha'?(swarIndex+1)%SWARS.length:(swarIndex-1+SWARS.length)%SWARS.length;history=[];smoothedNeedle=0;updateTarget();}
-async function startPractice(){await ensureAudio(); swarIndex=practiceOrder==='aaroha'?0:SWARS.length-1;smoothedNeedle=0;updateTarget();ui.check.textContent='Ⅱ';ui.check.classList.remove('running');ui.start.textContent='■ Stop practice';ui.start.classList.add('running');ui.start.onclick=stopPractice; history=[]; setPhase('drone'); if(!raf) pitchLoop();}
-function stopPractice(){clearInterval(cycleTimer);stopDrone();stopMic();phase='idle';ui.check.textContent='Ⅱ';ui.check.classList.remove('running');ui.start.textContent='▶ Start drone practice cycle';ui.start.classList.remove('running');ui.start.onclick=startPractice;ui.status.innerHTML='<i></i> Mic: Listen<br>Mode';ui.progress.style.width='0%';ui.timer.textContent='00:00';}
+async function startPractice(){await ensureAudio(); swarIndex=practiceOrder==='aaroha'?0:SWARS.length-1;smoothedNeedle=0;updateTarget();setMicButton();ui.start.textContent='■ Stop practice';ui.start.classList.add('running');ui.start.onclick=stopPractice; history=[]; setPhase('drone'); if(!raf) pitchLoop();}
+function stopPractice(){clearInterval(cycleTimer);stopDrone();stopMic();phase='idle';setMicButton();ui.start.textContent='▶ Start drone practice cycle';ui.start.classList.remove('running');ui.start.onclick=startPractice;ui.status.innerHTML='<i></i> Mic: Listen<br>Mode';ui.progress.style.width='0%';ui.timer.textContent='00:00';}
 ui.start.onclick=startPractice;
 
 // Immediate mode is useful when you simply want an answer for one selected swar.
 async function togglePitchCheck() {
-  if (phase === 'check') { stopMic(); phase='idle'; ui.check.textContent='Ⅱ'; ui.check.classList.remove('running'); ui.status.innerHTML='<i></i> Mic: Listen<br>Mode'; ui.verdict.textContent='SELECTED TARGET'; ui.verdict.className=''; return; }
+  if (phase === 'check') { stopMic(); phase='idle'; setMicButton(); ui.status.innerHTML='<i></i> Mic: Listen<br>Mode'; ui.verdict.textContent='SELECTED TARGET'; ui.verdict.className=''; return; }
   if (phase !== 'idle') stopPractice();
-  await ensureAudio(); history=[]; phase='check'; ui.check.textContent='■'; ui.check.classList.add('running'); ui.status.innerHTML='<i></i> Mic: Checking'; ui.verdict.textContent='LISTENING…'; ui.verdict.className='';
-  try { await startMic(); if(!raf) pitchLoop(); } catch { phase='idle'; ui.check.textContent='Ⅱ'; ui.check.classList.remove('running'); }
+  await ensureAudio(); history=[]; phase='check'; setMicButton(true); ui.status.innerHTML='<i></i> Mic: Checking'; ui.verdict.textContent='LISTENING…'; ui.verdict.className='';
+  try { await startMic(); if(!raf) pitchLoop(); } catch { phase='idle'; setMicButton(); }
 }
 ui.check.onclick=togglePitchCheck;
 
