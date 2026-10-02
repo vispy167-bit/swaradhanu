@@ -1,0 +1,7 @@
+{
+  "appId": "com.pushkar.swaradhanu",
+  "appName": "Swaradhanu",
+  "webDir": "src",
+  "bundledWebRuntime": false,
+  "server": { "androidScheme": "https" }
+}

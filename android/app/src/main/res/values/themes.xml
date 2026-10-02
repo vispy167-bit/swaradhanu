@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Swaradhanu" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:statusBarColor">#3b2117</item>
+        <item name="android:navigationBarColor">#3b2117</item>
+    </style>
+</resources>
