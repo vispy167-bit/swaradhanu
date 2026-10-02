@@ -12,12 +12,12 @@ setMicButton();
 
 const themeBtn = $('themeBtn');
 const installBtn=document.createElement('button');
-installBtn.className='install-button';installBtn.textContent='Install';installBtn.hidden=true;themeBtn.before(installBtn);
+installBtn.className='install-button';installBtn.textContent='Install';installBtn.hidden=false;themeBtn.before(installBtn);
 const pwaStyles=document.createElement('link');pwaStyles.rel='stylesheet';pwaStyles.href='pwa.css';document.head.append(pwaStyles);
 const headerStyles=document.createElement('link');headerStyles.rel='stylesheet';headerStyles.href='header-controls.css';document.head.append(headerStyles);
 let deferredInstall;
 window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();deferredInstall=event;installBtn.hidden=false;});
-installBtn.onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;installBtn.hidden=true;};
+installBtn.onclick=async()=>{if(!deferredInstall){alert('To install Swaradhanu, open this site in Chrome, tap the three-dot menu, then choose Install app or Add to Home screen.');return;}deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;installBtn.hidden=true;};
 window.addEventListener('appinstalled',()=>{installBtn.hidden=true;});
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js'));
 function setTheme(theme){document.body.classList.toggle('light',theme==='light');themeBtn.textContent=theme==='light'?'◐':'☼';localStorage.setItem('swaradhanu-theme',theme);}
